@@ -8,19 +8,26 @@ export default async function handler(req, res) {
   const url = `https://${host}/cdn-cgi/trace`;
 
   try {
-    // Membuat permintaan fetch untuk mendapatkan hasil trace
-    const response = await fetch(`${url}?ip=${ip}&port=${port}&tls=${tls ? 'true' : 'false'}`);
+    // Memeriksa konektivitas ke IP dan port
+    const connectivityTest = await fetch(`http://${ip}:${port}`);
 
-    // Mengecek jika respons tidak sukses
+    // Jika tidak dapat terhubung ke IP:Port
+    if (!connectivityTest.ok) {
+      return res.status(500).json({ error: `Tidak dapat terhubung ke ${ip}:${port}` });
+    }
+
+    // Jika koneksi berhasil, lanjutkan untuk cek di Cloudflare
+    const response = await fetch(`${url}?ip=${ip}&port=${port}&tls=${tls ? 'true' : 'false'}`);
+    
+    // Cek jika respons dari Cloudflare tidak OK
     if (!response.ok) {
-      console.log('Failed response:', response.status, response.statusText);
       return res.status(500).json({ error: 'Gagal terhubung ke server Cloudflare' });
     }
 
     // Mengambil hasil dalam format teks
     const textData = await response.text();
 
-    // Parsing teks menjadi objek JSON dengan memisahkan setiap baris dan memetakannya
+    // Parsing teks menjadi objek JSON
     const data = textData.split('\n').reduce((acc, line) => {
       const [key, value] = line.split('=');
       if (key && value) {
@@ -34,7 +41,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Proxy tidak aktif atau gagal terhubung' });
     }
 
-    // Kembalikan data dalam format JSON yang terstruktur
+    // Mengembalikan data yang sesuai
     return res.status(200).json({
       asOrganization: data.asOrganization,
       asn: data.asn,
