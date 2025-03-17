@@ -1,5 +1,3 @@
-import fetch from 'node-fetch'; // pastikan untuk menggunakan node-fetch untuk fetch pada Vercel
-
 export default async function handler(req, res) {
   const { ip, port } = req.query;  // Ambil parameter IP dan Port dari query string
 
