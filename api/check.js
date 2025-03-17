@@ -34,7 +34,7 @@ async function handleRequest(request) {
     const geoData = await geoRes.json()
 
     // Membuat URL untuk memeriksa proxy di Cloudflare
-    const cfUrl = `https://speed.cloudflare.com/cdn-cgi/trace?ip=${ip}&port=${port}`
+    const cfUrl = `https://speed.cloudflare.com/cdn-cgi/trace?ip=${ip}`
     const cfRes = await fetch(cfUrl)
     if (!cfRes.ok) {
       console.error('Cloudflare request failed:', cfRes.status)
@@ -43,10 +43,9 @@ async function handleRequest(request) {
         headers: { "Content-Type": "application/json" },
       })
     }
-    const cfData = await cfRes.text()  // Cloudflare mengembalikan data dalam format teks
 
-    // Jika berhasil, analisa data Cloudflare
-    const proxyStatus = cfData.includes("cf-ray") ? "active" : "dead"
+    const cfData = await cfRes.text()  // Cloudflare mengembalikan data dalam format teks
+    const proxyStatus = cfData.includes("cf-ray") ? "active" : "dead"  // Jika data `cf-ray` ada, berarti aktif
 
     // Simulasi status proxy berdasarkan data Cloudflare
     const result = {
@@ -62,7 +61,7 @@ async function handleRequest(request) {
       latitude: geoData.lat,
       longitude: geoData.lon,
       isp: geoData.isp,
-      cfStatus: cfData, // Tambahkan data dari Cloudflare untuk analisis lebih lanjut
+      cfStatus: cfData,  // Tambahkan data dari Cloudflare untuk analisis lebih lanjut
     }
 
     return new Response(JSON.stringify(result), {
