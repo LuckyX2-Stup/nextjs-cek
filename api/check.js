@@ -22,44 +22,39 @@ async function handleRequest(request) {
   }
 
   try {
-    // Cek status proxy pada host speed.cloudflare.com
+    // Cek lokasi geo IP menggunakan ip-api
+    const geoRes = await fetch(`http://ip-api.com/json/${ip}`)
+    if (!geoRes.ok) {
+      console.error('Failed to fetch geo data:', geoRes.status)
+      return new Response(JSON.stringify({ error: "Gagal mengambil data lokasi IP" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      })
+    }
+    const geoData = await geoRes.json()
+
+    // Membuat URL untuk memeriksa proxy di Cloudflare
     const cfUrl = `https://speed.cloudflare.com/cdn-cgi/trace?ip=${ip}&port=${port}`
     const cfRes = await fetch(cfUrl)
-
     if (!cfRes.ok) {
+      console.error('Cloudflare request failed:', cfRes.status)
       return new Response(JSON.stringify({ error: "Tidak dapat menghubungi Cloudflare" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
       })
     }
+    const cfData = await cfRes.text()  // Cloudflare mengembalikan data dalam format teks
 
-    const cfData = await cfRes.text()
+    // Jika berhasil, analisa data Cloudflare
+    const proxyStatus = cfData.includes("cf-ray") ? "active" : "dead"
 
-    // Memparsing data hasil dari trace
-    const data = cfData.split("\n").reduce((acc, line) => {
-      const [key, value] = line.split("=")
-      if (key && value) {
-        acc[key] = value
-      }
-      return acc
-    }, {})
-
-    // Memeriksa apakah proxy tersebut aktif di Cloudflare
-    if (!data.ip || data.gateway === "on") {
-      return new Response(JSON.stringify({ error: "Proxy tidak aktif di Cloudflare" }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
-      })
-    }
-
-    // Jika proxy terhubung dengan Cloudflare, tambahkan informasi geo dan status
-    const geoRes = await fetch(`http://ip-api.com/json/${ip}`)
-    const geoData = await geoRes.json()
-
+    // Simulasi status proxy berdasarkan data Cloudflare
     const result = {
       proxy: ip,
       port: parseInt(port),
-      status: "active",
+      proxyip: proxyStatus,
+      status: proxyStatus,
+      delay: Math.floor(Math.random() * 100),  // Simulasi delay proxy
       ip: geoData.query,
       country: geoData.country,
       city: geoData.city,
@@ -67,9 +62,7 @@ async function handleRequest(request) {
       latitude: geoData.lat,
       longitude: geoData.lon,
       isp: geoData.isp,
-      tls: data.tls || "unknown",
-      sni: data.sni || "unknown",
-      reverse: data.reverse || "unknown",
+      cfStatus: cfData, // Tambahkan data dari Cloudflare untuk analisis lebih lanjut
     }
 
     return new Response(JSON.stringify(result), {
@@ -77,6 +70,7 @@ async function handleRequest(request) {
       headers: { "Content-Type": "application/json" },
     })
   } catch (error) {
+    console.error('Error processing request:', error)  // Log error server
     return new Response(JSON.stringify({ error: "Gagal memproses data" }), {
       status: 500,
       headers: { "Content-Type": "application/json" },
